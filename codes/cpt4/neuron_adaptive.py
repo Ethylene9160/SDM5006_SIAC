@@ -10,43 +10,51 @@ class NNPID(torch.nn.Module):
         layers = []
         for i in range(len(layer_sizes) - 2):
             layers.append(nn.Linear(layer_sizes[i], layer_sizes[i+1]))
-            layers.append(nn.ELU())
+            layers.append(nn.ReLU())
         layers.append(nn.Linear(layer_sizes[-2], layer_sizes[-1]))
         layers.append(nn.Sigmoid())
         self.model = nn.Sequential(*layers)
         self.lr = lr
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=lr)
         # tensor 0
-        self.last_u = torch.tensor([0], dtype=torch.float32)
         self.last_y = torch.tensor([0], dtype=torch.float32)
-
+        self.last_u = torch.tensor([0], dtype=torch.float32)
     def forward(self, x):
         for layer in self.model:
             x = layer(x)
-        x = x * torch.tensor([2, 1, 0.5], dtype=torch.float32)
+        x = x #* torch.tensor([5, 1, 0.5], dtype=torch.float32)
         return x
 
     def onlineTraining(self, inputs, realOutputs, errors, setpoint):
         # convert inputs, realOutputs, errors to torch tensors
         inputs = torch.tensor(inputs, dtype=torch.float32)
-        realOutputs = torch.tensor(realOutputs, dtype=torch.float32)
         errors = torch.tensor(errors, dtype=torch.float32)
+        realOutputs = torch.tensor(realOutputs, dtype=torch.float32)
         setpoint = torch.tensor(setpoint, dtype=torch.float32)
-
         self.optimizer.zero_grad()
         outputs = self(inputs)
-        # pid outputs: self.output(Kp, Ki, Kd) dot errors (ep, ei, ed)
-        u = torch.sum(outputs * errors, dim=0)
-        sgn = 1 if (self.last_u - u) * (self.last_y - realOutputs) >= 0 else -1
-        # sgn = 1
-        error = (setpoint - realOutputs) * sgn
 
-        # Ensure the error tensor has the same shape as u
-        error = error.view_as(u)
+        # Ensure outputs and errors are compatible for dot product
+        if outputs.shape != errors.shape:
+            print(f"Shape mismatch: outputs.shape={outputs.shape}, errors.shape={errors.shape}")
+            return
+
+        u = torch.matmul(outputs, errors).view(1, 1)  # Convert u to shape (1, 1)
+        sgn = 1 if (self.last_u - u) * (self.last_y - realOutputs) >= 0 else -1
+
+        # error is scalar
+        error = (realOutputs-setpoint) * sgn
+        # clip the error
+        error = torch.clamp(error, -0.5, 0.5).view(1,1)
+
+        # print('error: ', error)
+        # print('u: ', u)
 
         # back propagate the error
-        u.backward(error)
+        # u.grad.data.clamp_(-1, 1)
+        u.backward(error)  # Scalar error
         self.optimizer.step()
+
         self.last_u = u
         self.last_y = realOutputs
 
@@ -56,6 +64,36 @@ class NNPID(torch.nn.Module):
 
     # def cal_u(self, errors):
     #     return self.predict(errors)
+
+class SingleNNPID:
+    def __init__(self,
+                 lr_p,
+                 lr_i,
+                 lr_d,
+                 kp_factor:float = 1,
+                 ki_factor:float = 1,
+                 kd_factor:float = 1):
+        # self.lr_p = lr_p
+        # self.lr_i = lr_i
+        # self.lr_d = lr_d
+        self.lr = np.array([lr_p, lr_i, lr_d])
+        self.K = np.array([0.5, 0.1, 0.05])
+        self.factors = np.array([kp_factor, ki_factor, kd_factor])
+    def onlineTraining(self, errors, realOutput):
+        errors = errors.copy()
+        errors = np.clip(errors, -0.5, 0.5)
+        err = errors[0]
+        u = self.get_u(errors)
+        self.K[0] += err * self.lr[0] * errors[0] * u
+        self.K[1] += err * self.lr[1] * errors[1] * u
+        self.K[2] += err * self.lr[2] * errors[2] * u
+
+    def get_u(self, errors):
+        k_tmp = self.K * self.factors
+        return k_tmp.dot(errors)
+
+    def __norm(self):
+        self.K = np.linalg.norm(self.K)
 
 class PIDController:
     def __init__(self, kp, ki, kd):
@@ -71,7 +109,7 @@ class PIDController:
         self.previous_error = error
         return self.kp * error + self.ki * self.integral + self.kd * derivative
 
-    def get_u(self, errors, dt):
+    def get_u(self, errors):
         return self.kp*errors[0] + self.ki*errors[1] + self.kd*errors[2]
 
 
@@ -88,29 +126,15 @@ class error_store:
         return [self.ep, self.ei, self.ed]
 
 
-# transfer function: 1.5/(s^2+1.6s+1)
-def system_dynamics(t, state, controller, setpoint):
-    # 状态变量
-    x1, x2 = state  # x1: 输出, x2: 输出的导数
-    y = x1  # 输出
-
-    # 误差计算
-    error = setpoint - y
-
-    # 计算控制信号
-    dt = 0.01  # 时间步长（数值积分使用）
-    u = controller.cal_u(error, dt)
-
-    # 系统的二阶状态空间方程
-    dx1 = x2
-    dx2 = -1.6 * x2 - x1 + 1.5 * u
-    return [dx1, dx2]
-
 # 仿真参数
 kp, ki, kd =0.8, 0.2, 0.05  # PID参数
 pid = PIDController(kp, ki, kd)  # 初始化PID控制器
-nnpid = NNPID([3, 16, 32, 16, 3], 0.00001)
-setpoint = 0.8  # 目标值
+nnpid = NNPID([3, 32, 3], 0.0001)
+# single_nnpid = SingleNNPID(0.001, 0.001, 0.001,
+#                            kp_factor = 1,
+#                            ki_factor = 1,
+#                            kd_factor = 1)
+setpoint = 5  # 目标值
 dt = 0.01  # 时间步长
 sim_time = 40  # 仿真总时间
 steps = int(sim_time / dt)  # 仿真步数
@@ -140,35 +164,41 @@ for t in time:
     nn_current_errors = np.array(nn_errors.update(nn_error, dt))
     # 使用PID控制器计算控制信号
     # u = pid.cal_u(error, dt)
-    u = pid.get_u(current_errors, dt)
+    u = pid.get_u(current_errors)
     control_signals.append(u)
     # training online
-    nnpid.onlineTraining(current_errors, [x1], nn_current_errors, setpoint)
     # print('output shape: ', np.array(nn_current_errors).shape)
     # print('output shape: ', nnpid.predict(nn_current_errors).shape)
     nn_ks = nnpid.predict(nn_current_errors)
+    # nn_ks = single_nnpid.K * single_nnpid.factors
     nn_p.append(nn_ks[0])
     nn_i.append(nn_ks[1])
     nn_d.append(nn_ks[2])
     nn_u = np.dot(nn_ks, nn_current_errors)
     nn_control_signals.append(nn_u)
 
-    # 更新系统状态（离散化状态方程）
+
+    # 更新系统状态（离散化状态方程），不用管
     dx1 = x2
     dnn_x1 = nn_x2
 
-    if t > 20:
+    if t > 20: # 不稳定系统
         dx2 = -0.21 * x2 - x1 + 1.5 * u
         dnn_x2 = -0.21 * nn_x2 - nn_x1 + 1.5 * nn_u
-    else:
+    else: # 稳定系统
         dx2 = -2.3 * x2 - x1 + 1.7 * u
         dnn_x2 = -2.3 * nn_x2 - nn_x1 + 1.7 * nn_u
 
     x1 += dx1 * dt
     x2 += dx2 * dt
+
     nn_x1 += dnn_x1 * dt
     nn_x2 += dnn_x2 * dt
+    # 系统状态更新结束
 
+    # 训练神经网络
+    nnpid.onlineTraining(nn_current_errors, nn_x1, nn_current_errors, setpoint)
+    # single_nnpid.onlineTraining(nn_current_errors, nn_x1)
     # 记录输出
     outputs.append(x1)
     nn_outputs.append(nn_x1)
@@ -179,7 +209,7 @@ plt.figure(figsize=(10, 6))
 
 # 输出响应
 plt.subplot(3, 1, 1)
-plt.plot(time, outputs, label="System Output (y)")
+plt.plot(time, outputs, label="PID Output (y)")
 plt.plot(time, nn_outputs, label="NN Output (y)")
 plt.axhline(setpoint, color='r', linestyle='--', label="Setpoint")
 plt.title("System Output vs Setpoint")
@@ -212,41 +242,3 @@ plt.legend()
 plt.tight_layout()
 plt.show()
 
-
-
-
-# 3*1 torch tensor, values are 1, 2, 3
-input = torch.tensor([1, 2, 3], dtype=torch.float32).view(1, 3)
-linear = nn.Linear(3,1)
-# set the weights to 1.
-linear.weight.data.fill_(1)
-# set the bias to 0.
-linear.bias.data.fill_(0)
-
-# print the weights and outputs
-print('weights: ', linear.weight)
-print('bias: ', linear.bias)
-
-# store gradients
-linear.zero_grad()
-output = linear(input)
-output.backward()
-# print the gradients
-# print('gradients: ', linear.weight.grad)
-# print('bias gradients: ', linear.bias.grad)
-
-# set learning rate to be 0.1, error is 1,
-# and then back popogate the error to update the weights
-
-learning_rate = 0.1
-error = 1
-linear.zero_grad()
-output = linear(input)
-optimizer = torch.optim.SGD(linear.parameters(), lr=learning_rate)
-output.backward(torch.tensor([[error]], dtype=torch.float32))
-print("====compatarion====")
-print('weights before: ', linear.weight)
-print('bias before: ', linear.bias)
-optimizer.step()
-print('weights after: ', linear.weight)
-print('bias after: ', linear.bias)
