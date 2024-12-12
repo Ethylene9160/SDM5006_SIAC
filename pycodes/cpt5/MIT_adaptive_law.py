@@ -4,36 +4,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal
 
-class PIDController:
-    def __init__(self, kp, ki, kd):
-        self.kp = kp
-        self.ki = ki
-        self.kd = kd
-        self.previous_error = 0
-        self.integral = 0
-
-    def cal_u(self, error, dt):
-        self.integral += error * dt
-        derivative = (error - self.previous_error) / dt
-        self.previous_error = error
-        return self.kp * error + self.ki * self.integral + self.kd * derivative
-
-    def get_u(self, errors):
-        return self.kp*errors[0] + self.ki*errors[1] + self.kd*errors[2]
-
-
-class error_store:
-    def __init__(self):
-        self.ep = 0
-        self.ei = 0
-        self.ed = 0
-
-    def update(self, error, dt):
-        self.ed = (error - self.ep) / dt
-        self.ep = error
-        self.ei += error*dt
-        return [self.ep, self.ei, self.ed]
-
 # Transfer function
 num = np.array([1])
 den = np.array([1, 1, 1])
