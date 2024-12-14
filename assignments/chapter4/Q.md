@@ -14,6 +14,6 @@ $$
 and the input signal adopts a 4th-order M-sequence with an amplitude of 1.
 
 When the mean and variance of Gaussian noise $v(k)$ are 0 and 0.5, the parameters are
-estimated by the maximum likelihood identification method, correlation analysis method
+estimated by the maximum likelihood identification method, correlation analysis method, 
 recursive gradient correction estimation method, and recursive stochastic Newton
 method, respectively.
