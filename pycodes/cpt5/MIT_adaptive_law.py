@@ -10,8 +10,8 @@ den = np.array([1, 1, 1])
 n = len(den) - 1
 
 # simulate time
-dt = 0.1
-simulate_time = 100
+dt = 0.1 # time step
+simulate_time = 100 # simulate time (seconds)
 
 kp = 1.0
 km = 1.0
@@ -28,8 +28,6 @@ print('Bp: ', Bp)
 print('Cp: ', Cp)
 print('Dp: ', Dp)
 
-gamma = 0.1 # adaptive gain
-u = 0 # control input, by the controller.
 xp = np.zeros((n,1)) # plant state
 xm = np.zeros((n,1)) # model state
 
@@ -37,18 +35,21 @@ xm = np.zeros((n,1)) # model state
 ym_records = np.zeros(int(simulate_time/dt))
 yp_records = np.zeros(int(simulate_time/dt))
 e_records = np.zeros(int(simulate_time/dt))
+theta_records = np.zeros(int(simulate_time/dt))
 
-kc = 0 # initial adjustive gain
-r = 0.6 # gain
 My = 1 # use to plot the y axis
+u = 0 # control input, by the controller.
 
 # input signals for the model, a square wave.
 # we use a squence for calculation and plot.
+r = 0.6
 yr = r * np.array([np.ones(int(simulate_time/dt/4)), 
                     -np.ones(int(simulate_time/dt/4)),
                     np.ones(int(simulate_time/dt/4)), 
                     -np.ones(int(simulate_time/dt/4))]).flatten()
 
+theta = 0 # initial adjustive gain
+gamma = 0.1 # adaptive gain
 
 for i in range(1, len(yr)):
     # yp: plant output
@@ -66,15 +67,21 @@ for i in range(1, len(yr)):
     e_records[i] = ym - yp
     
     # Applying the MIT adaptive law
-    kc = kc + dt * gamma * e_records[i-1] * ym_records[i-1]
-    u = kc * yr[i]
+    theta = theta + dt * gamma * e_records[i-1] * ym_records[i-1]
+    u = theta * yr[i]
+    theta_records[i] = theta
 
 # display the results
 plt.figure()
+plt.subplot(211)
 plt.plot(np.arange(0, simulate_time, dt), yr, label='input signal (yr)', color='black')
 plt.plot(np.arange(0, simulate_time, dt), ym_records, label='model output (ym)')
 plt.plot(np.arange(0, simulate_time, dt), yp_records, label='plant output (yp)')
 plt.axis([0, simulate_time, -My, My])
+plt.legend()
+plt.subplot(212)
+plt.plot(np.arange(0, simulate_time, dt), theta_records, label='adaptive gain (theta)')
+plt.axis([0, simulate_time, 0, 1])
 plt.legend()
 plt.show()
 

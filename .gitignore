@@ -195,3 +195,16 @@ node_modules
 
 #vscode 
 .vscode
+
+##############################
+####### Custom Settings ######
+##############################
+
+# ignore answers for the assignment
+# after the final exam, 
+# these 2 lines will be removed.
+A.md
+A.pdf
+
+# notes in Chinese version
+*-cn.md
