@@ -6,7 +6,7 @@ from scipy import signal
 
 # Transfer function
 num = np.array([1])
-den = np.array([1, 1, 1])
+den = np.array([1, 1])
 n = len(den) - 1
 
 # simulate time
