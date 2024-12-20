@@ -43,15 +43,17 @@ for i in range(1, 5):
 for i in range(5, N):
     y[i] = 1.5 * y[i-1] - 0.7 * y[i-2] + 1.0 * u[i-3] + 0.5 * u[i-4] + v[i]
 
-# recursive least square method
+# forgetting factor recursive least square method
 theta = np.zeros((4,1)) # [a1, a2, b1, b2].T
 K = np.zeros((4,1))
+# forgetting factor. 1 represents recursive least square method.
+_lambda = 0.9
 P = 1000000 * np.eye(4)
 for i in range(4, N):
     phi = np.array([-y[i-1], -y[i-2], u[i-3], u[i-4]]).reshape((4,1))
     theta = theta + K * (y[i] - phi.T @ theta)
-    K = P @ phi / (1 + phi.T @ P @ phi)
-    P = P - K @ phi.T @ P
+    K = P @ phi / (_lambda + phi.T @ P @ phi)
+    P = (P - K @ phi.T @ P) / _lambda
 theta = theta.reshape(4)
     
 a1, a2, b1, b2 = theta
