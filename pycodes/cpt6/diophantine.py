@@ -36,18 +36,19 @@ def sindiophantine(
         g[i] = cd[i+d] - g[i]
     f = np.convolve(b, e)
     return e, f, g
-        
-a = np.array([1, -1.7, 0.7])
-b = np.array([1, 0.5])
-c = np.array([1, 0.2])
-d = 4
 
-e, f, g = sindiophantine(a, b, c, d)
+if __name__ == '__main__': 
+    a = np.array([1, -1.7, 0.7])
+    b = np.array([1, 0.5])
+    c = np.array([1, 0.2])
+    d = 4
 
-# display
-print('e: ', e)
-print('f: ', f)
-print('g: ', g)
+    e, f, g = sindiophantine(a, b, c, d)
+
+    # display
+    print('e: ', e)
+    print('f: ', f)
+    print('g: ', g)
 
 
 # todo: the results are not correct:
