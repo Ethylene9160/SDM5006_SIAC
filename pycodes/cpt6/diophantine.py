@@ -17,21 +17,22 @@ def sindiophantine(
 
     e = np.zeros(ne+1)
     e[0] = 1
+    e0 = 1
 
     g = np.zeros(ng+1)
 
     # Calculate e
     for i in range(1, ne+1):
         e[i] = 0
-        for j in range(1, i):
-            e[i] += e[i+1-j]*ad[j]
+        for j in range(1, i+1):
+            e[i] += e[i-j]*ad[j]
         e[i] = cd[i]-e[i]
 
     # Calculate g
     for i in range(ng+1):
         g[i] = 0
-        for j in range(ne+1):
-            g[i] += e[ne+-j] * ad[i+j]
+        for j in range( ne+1):
+            g[i] += e[ne-j] * ad[i+1+j]
         g[i] = cd[i+d] - g[i]
     f = np.convolve(b, e)
     return e, f, g
@@ -50,6 +51,7 @@ print('g: ', g)
 
 
 # todo: the results are not correct:
+# DONE.
 # true values are:
 # e = 1.0000    1.9000    2.5300    2.9710
 # f = 1.0000    2.4000    3.4800    4.2360    1.4855
