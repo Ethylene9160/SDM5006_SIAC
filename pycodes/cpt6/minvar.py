@@ -24,8 +24,10 @@ y = np.zeros((na, 1))
 yr = np.zeros((nc, 1))
 xi = np.zeros((nc, 1))
 
-y_records = [0,0,0,0]
-u_records = [0,0,0,0]
+y_records = [0,0,0,0,0]
+u_records = [0,0,0,0,0]
+y_records[1] = 1.7 * y_records[0] 
+y_records[2] = 1.7 * y_records[1] - 0.7 * y_records[0]
 
 setpoints = 10 * np.array([np.ones(int(timestamps/4)), 
                     -np.ones(int(timestamps/4)),
@@ -33,22 +35,30 @@ setpoints = 10 * np.array([np.ones(int(timestamps/4)),
                     -np.ones(int(timestamps/4))]).flatten()
 v = np.random.normal(0, 0.1, timestamps)
 
-for i in range(3, timestamps-4):
+for i in range(5, timestamps-4):
     # plant output
     # y_k = -a[1:] @ y + b @ u[d-1:] + c @ np.array([v[i], v[i-1]]).reshape(2,1)
-    y_k = -a[1:] @ y + b @ u[d-1:] + c @ np.array([v[i], v[i-1]]).reshape(2,1)
+    # y_k = -a[1:] @ np.array([y_records[i], y_records[i-1]]).reshape((2,1)) \
+    #     + b @ np.array([u_records[i-3], u_records[i-4]]).reshape((2,1)) \
+    #     + c @ np.array([v[i], v[i-1]]).reshape(2,1)
+    y_k = 1.7*y_records[i-1] - 0.7*y_records[i-2] + u_records[i-4] + 0.5*u_records[i-5] + v[i] + 0.2*v[i-1]
     # print('shape of yk: ', y_k.shape)
     # print('yk: ', y_k)
     y_k = y_k.item()
+    # print(f'y{i}: {y_k}')
     y_records.append(y_k)
     # u_k = -f[1:] @ u[:nf]+ c @ setpoints[i+d:i+d-1-min(d, nc):-1].reshape(2,1)
-    u_k = -f[1:] @ np.array(
-        [u_records[i],
-         u_records[i-1],
-         u_records[i-2],
-         u_records[i-3]]).reshape((4,1)) +\
-            c @ np.array([setpoints[i+4],setpoints[i+3]]).reshape(2,1) -\
-            g @ np.array([y_records[i], y_records[i-1]]).reshape(2,1)
+    # u_k = -f[1:] @ np.array(
+    #     [u_records[i],
+    #      u_records[i-1],
+    #      u_records[i-2],
+    #      u_records[i-3]]).reshape((4,1)) +\
+    #         c @ np.array([setpoints[i+4],setpoints[i+3]]).reshape(2,1) -\
+    #         g @ np.array([y_records[i], y_records[i-1]]).reshape(2,1)
+    # u_k /= f[0]
+    u_k = -2.4*u_records[i-1] - 3.481*u_records[i-2] - 4.236 * u_records[i-3] -1.4855 * u_records[i-4]\
+        + setpoints[i+4] + 0.2*setpoints[i+3] - 3.2797*y_records[i] - 2.0797*y_records[i-1]
+    # print(f'u{i}: {u_k}')
     # print('shape of uk: ', u_k.shape)
     # print('uk: ', u_k)
     u_k = u_k.item()
@@ -68,7 +78,7 @@ for i in range(3, timestamps-4):
     y[na-1] = y_k
 
 plt.figure()
-plt.plot(np.arange(0, len(y_records)-1, 1), setpoints[:-d], label='setpoints')
+plt.plot(np.arange(0, len(y_records)-1, 1), setpoints[:-d-1], label='setpoints')
 plt.plot(np.arange(0, len(y_records)-1, 1), y_records[1:], label='plant output')
 plt.legend()
 plt.show()
