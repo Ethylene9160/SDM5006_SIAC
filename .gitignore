@@ -197,6 +197,43 @@ node_modules
 .vscode
 
 ##############################
+########## Node.js ###########
+##############################
+
+# node modules
+node_modules/
+
+*.log
+
+# temp files
+**/tmp
+**/temp
+**/build
+**/dist
+
+# configs
+*.swp
+*.swo
+
+# tools
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# auto files
+docs/api/
+docs/build/
+
+# ends
+.env
+.senv
+
+# system files
+.DS_Store
+Thumbs.db
+
+
+##############################
 ####### Custom Settings ######
 ##############################
 
